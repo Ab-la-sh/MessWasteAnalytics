@@ -1,0 +1,264 @@
+// MessWaste Analytics — Prisma schema
+// PostgreSQL. Designed to be ML-ready: every record carries the dimensions
+// (mess, date, meal slot, week type, day of week, menu composition, weather,
+// calendar context) needed to train a waste-prediction model later without
+// schema changes.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  DATA_COLLECTOR
+}
+
+enum MealSlot {
+  BREAKFAST
+  LUNCH
+  SNACKS
+  DINNER
+}
+
+enum WeekType {
+  A
+  B
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum EventType {
+  NORMAL
+  HOLIDAY
+  FESTIVAL
+  COLLEGE_EVENT
+  EXAM_PERIOD
+}
+
+enum QuantityUnit {
+  KG
+  LITRES
+}
+
+// Fixed constant set of menu composition tags, mirrored in code at
+// src/lib/constants.ts (MENU_TAGS). This enum is the source of truth in the
+// DB; the UI/API never lets these be created or edited — see constants.ts.
+enum MenuTag {
+  VEGETARIAN
+  NON_VEGETARIAN
+  FRIED
+  GRAVY
+  DRY
+  RICE_BASED
+  BREAD_BASED
+  SPICY
+  SWEET
+  DESSERT
+}
+
+// ---------------------------------------------------------------------------
+// Core entities
+// ---------------------------------------------------------------------------
+
+model Mess {
+  id        String   @id @default(cuid())
+  name      String // e.g. "Mess 1"
+  code      String   @unique // short code, e.g. "M1"
+  // Location used to key weather lookups for this mess.
+  latitude  Float
+  longitude Float
+  timezone  String   @default("Asia/Kolkata")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  menuSlots    MenuSlot[]
+  wasteRecords WasteRecord[]
+
+  @@map("messes")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(DATA_COLLECTOR)
+  // Null for Admins (they see all messes). Required for Data Collectors —
+  // enforced at the application layer (see src/lib/auth.ts).
+  messId       String?
+  mess         Mess?    @relation(fields: [messId], references: [id])
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wasteRecordsCreated WasteRecord[] @relation("CreatedBy")
+  wasteRecordsUpdated WasteRecord[] @relation("UpdatedBy")
+
+  @@index([messId])
+  @@map("users")
+}
+
+// Scheduled A/B weekly menu, defined once per mess/day/slot by Admins.
+// This is what the daily WasteRecord's schedule-deviation flag compares against.
+model MenuSlot {
+  id       String    @id @default(cuid())
+  messId   String
+  mess     Mess      @relation(fields: [messId], references: [id], onDelete: Cascade)
+  weekType WeekType
+  dayOfWeek DayOfWeek
+  mealSlot MealSlot
+
+  itemCount     Int // total item count for this scheduled meal
+  pctGravyDishes Float // 0-100
+
+  hasBiryani    Boolean @default(false)
+  hasPaneer     Boolean @default(false)
+  hasEggBreakfast Boolean @default(false)
+  hasDessert    Boolean @default(false)
+  hasDosa       Boolean @default(false)
+  hasParatha    Boolean @default(false)
+
+  // Fixed constant tags (MenuTag enum) that apply to this scheduled meal.
+  tags MenuTag[]
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wasteRecords WasteRecord[]
+
+  // One scheduled definition per mess/week-type/day/slot.
+  @@unique([messId, weekType, dayOfWeek, mealSlot])
+  @@index([messId])
+  @@map("menu_slots")
+}
+
+// The core daily data-collection entity.
+model WasteRecord {
+  id     String @id @default(cuid())
+  messId String
+  mess   Mess   @relation(fields: [messId], references: [id], onDelete: Cascade)
+
+  date      DateTime // calendar date of the meal (date-only semantics)
+  mealSlot  MealSlot
+  weekType  WeekType // auto-derived from date, editable
+  dayOfWeek DayOfWeek // auto-derived from date, display-only
+
+  // Link to the scheduled menu this record is measured against (nullable —
+  // a mess may not have a MenuSlot defined yet for this day/slot).
+  menuSlotId String?
+  menuSlot   MenuSlot? @relation(fields: [menuSlotId], references: [id])
+
+  // Waste (kg)
+  plateWasteKg   Float
+  counterWasteKg Float
+  packagingWasteKg Float
+  totalWasteKg   Float // = plate + counter + packaging (server-computed)
+
+  // Volume & cost
+  headcount           Int
+  quantityPrepared    Float
+  quantityUnit        QuantityUnit @default(KG)
+  totalIngredientCost Float // ₹
+
+  // Derived metrics (server-computed, stored for fast querying/ML)
+  wastePerPerson Float // totalWasteKg / headcount
+  wastePercent   Float // (totalWasteKg / quantityPrepared) * 100
+
+  // Context — auto-fetched, cached from WeatherDaily at save time
+  temperatureC Float?
+  rainfallMm   Float?
+  eventType    EventType @default(NORMAL)
+
+  // Menu deviation
+  scheduleDeviation      Boolean @default(false)
+  deviationReason        String?
+  deviationDescription   String?
+
+  // Fixed constant tags (MenuTag enum) actually served for this record.
+  tags MenuTag[]
+
+  notes String?
+
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?  @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One record per mess/date/meal slot.
+  @@unique([messId, date, mealSlot])
+  @@index([messId, date])
+  @@index([messId, dayOfWeek, mealSlot, weekType])
+  @@map("waste_records")
+}
+
+// Cached weather lookups, keyed by mess location + date, sourced from
+// Open-Meteo. Historical lookups read from here first; only misses hit the API.
+model WeatherDaily {
+  id     String @id @default(cuid())
+  messId String
+  date   DateTime
+
+  temperatureMaxC  Float?
+  temperatureMinC  Float?
+  temperatureMeanC Float?
+  precipitationMm  Float?
+  rainMm           Float?
+  humidityPercent  Float?
+
+  source    String   @default("open-meteo")
+  fetchedAt DateTime @default(now())
+
+  @@unique([messId, date])
+  @@index([messId, date])
+  @@map("weather_daily")
+}
+
+// Academic calendar context — shared across all messes (mess cycle is
+// per-mess, everything else is institution-wide).
+model CalendarDay {
+  id     String   @id @default(cuid())
+  date   DateTime @unique
+
+  dayOfWeek   DayOfWeek
+  isWeekend   Boolean @default(false)
+  isHoliday   Boolean @default(false)
+  holidayName String?
+
+  isQuizWeek Boolean @default(false)
+  isExamWeek Boolean @default(false)
+  isMajorEvent Boolean @default(false)
+  eventName    String?
+
+  // Which A/B mess-cycle week this date falls in (institution-wide default;
+  // per-mess override, if ever needed, lives on MenuSlot/WasteRecord's own
+  // weekType field).
+  weekType WeekType?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("calendar_days")
+}
