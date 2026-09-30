@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma';
 import { verifyPassword, signAuthToken, AUTH_COOKIE_NAME, AUTH_COOKIE_MAX_AGE_SECONDS } from '@/lib/auth';
 import { apiSuccess, apiError, withErrorHandling, ApiHttpError } from '@/lib/api-response';
 import { loginSchema } from '@/lib/validation/auth';
+import { hit, clientIp } from '@/lib/rate-limit';
+
+// 10 attempts per IP and 5 per IP+email, per 15 minutes.
+const WINDOW_MS = 15 * 60 * 1000;
 
 export const POST = withErrorHandling(async (req: NextRequest) => {
   const body = await req.json().catch(() => null);
@@ -11,6 +15,16 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     return apiError('Invalid request', 422, parsed.error.flatten());
   }
   const { email, password } = parsed.data;
+
+  const ip = clientIp(req);
+  const byIp = hit(`login:ip:${ip}`, 10, WINDOW_MS);
+  const byIpEmail = hit(`login:ip-email:${ip}:${email.toLowerCase()}`, 5, WINDOW_MS);
+  if (!byIp.allowed || !byIpEmail.allowed) {
+    const retryAfter = Math.max(byIp.retryAfterSeconds, byIpEmail.retryAfterSeconds);
+    const res = apiError('Too many login attempts. Please try again later.', 429);
+    res.headers.set('Retry-After', String(retryAfter));
+    return res;
+  }
 
   const user = await prisma.user.findUnique({ where: { email } });
 

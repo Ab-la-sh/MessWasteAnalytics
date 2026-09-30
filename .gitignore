@@ -2,5 +2,9 @@ node_modules/
 .next/
 .env
 .env.local
+.env.*.local
+.env.production
+.vercel/
 *.log
 dist/
+.env.*.bak

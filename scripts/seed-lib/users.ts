@@ -10,11 +10,19 @@ export interface SeedUserSpec {
   messCode: string | null; // null for Admin
 }
 
+export const DEFAULT_ADMIN_PASSWORD = 'Admin@12345';
+export const DEFAULT_COLLECTOR_PASSWORD = 'Collector@12345';
+
 export function buildSeedUsers(messCodes: string[]): SeedUserSpec[] {
+  // Override the demo passwords with SEED_ADMIN_PASSWORD / SEED_COLLECTOR_PASSWORD
+  // (e.g. when seeding a hosted database).
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
+  const collectorPassword = process.env.SEED_COLLECTOR_PASSWORD || DEFAULT_COLLECTOR_PASSWORD;
+
   const users: SeedUserSpec[] = [
     {
       email: 'admin@messwaste.local',
-      password: 'Admin@12345',
+      password: adminPassword,
       name: 'System Admin',
       role: 'ADMIN',
       messCode: null,
@@ -24,7 +32,7 @@ export function buildSeedUsers(messCodes: string[]): SeedUserSpec[] {
   for (const code of messCodes) {
     users.push({
       email: `collector.${code.toLowerCase()}@messwaste.local`,
-      password: 'Collector@12345',
+      password: collectorPassword,
       name: `${code} Data Collector`,
       role: 'DATA_COLLECTOR',
       messCode: code,

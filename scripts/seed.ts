@@ -4,6 +4,10 @@
 // Order matters: Mess -> Users -> CalendarDay -> WeatherDaily -> MenuSlot ->
 // demo WasteRecord (the last two depend on CalendarDay/MenuSlot for context).
 //
+// Set SEED_DEMO_RECORDS=false to skip step 6 (demo waste records) — use this for
+// production so only reference data (messes, users, calendar, weather, menu
+// slots) is seeded.
+//
 // Safe to re-run: Mess/User/MenuSlot/WasteRecord use upsert; CalendarDay/
 // WeatherDaily use createMany({ skipDuplicates: true }) since they're pure
 // reference data — if you change weather.csv or academic-calendar.csv and
@@ -20,6 +24,9 @@ import { loadCalendarSeedRows } from './seed-lib/calendar';
 import { buildSeedUsers } from './seed-lib/users';
 import { buildDemoRecords } from './seed-lib/demo-records';
 import type { MenuTag } from '@prisma/client';
+import { DEFAULT_ADMIN_PASSWORD, DEFAULT_COLLECTOR_PASSWORD } from './seed-lib/users';
+
+const SEED_DEMO_RECORDS = (process.env.SEED_DEMO_RECORDS ?? 'true').toLowerCase() !== 'false';
 
 const MESSES = [
   { number: 1, name: 'Mess 1', code: 'M1' },
@@ -58,7 +65,9 @@ async function main() {
     const messId = u.messCode ? messByCode.get(u.messCode)!.id : null;
     await prisma.user.upsert({
       where: { email: u.email },
-      update: { passwordHash, name: u.name, role: u.role, messId },
+      // passwordHash is intentionally NOT in `update`: re-running the seed must never
+      // reset a password that was changed after first login.
+      update: { name: u.name, role: u.role, messId },
       create: { email: u.email, passwordHash, name: u.name, role: u.role, messId },
     });
   }
@@ -160,81 +169,90 @@ async function main() {
   }
   console.log(`  done: ${MESSES.length} messes x 56 slots`);
 
-  // 6. Demo WasteRecord entries (trailing ~3 weeks of 2024-12, all 4 meal slots)
-  console.log('[6/6] Demo waste records...');
-  let recordCount = 0;
-  for (const m of MESSES) {
-    const messId = messByCode.get(m.code)!.id;
-    const collector = await prisma.user.findUnique({ where: { email: `collector.${m.code.toLowerCase()}@messwaste.local` } });
-    if (!collector) continue;
+  // 6. Demo WasteRecord entries (skipped when SEED_DEMO_RECORDS=false)
+  if (!SEED_DEMO_RECORDS) {
+    console.log('[6/6] Demo waste records... skipped (SEED_DEMO_RECORDS=false)');
+  } else {
+    console.log('[6/6] Demo waste records...');
+    let recordCount = 0;
+    for (const m of MESSES) {
+      const messId = messByCode.get(m.code)!.id;
+      const collector = await prisma.user.findUnique({ where: { email: `collector.${m.code.toLowerCase()}@messwaste.local` } });
+      if (!collector) continue;
 
-    const tagsBySlot = tagsBySlotByMess.get(m.code)!;
-    const demoRows = buildDemoRecords(m.code, calendarByDate, tagsBySlot);
+      const tagsBySlot = tagsBySlotByMess.get(m.code)!;
+      const demoRows = buildDemoRecords(m.code, calendarByDate, tagsBySlot);
 
-    for (const r of demoRows) {
-      const menuSlot = await prisma.menuSlot.findUnique({
-        where: {
-          messId_weekType_dayOfWeek_mealSlot: {
+      for (const r of demoRows) {
+        const menuSlot = await prisma.menuSlot.findUnique({
+          where: {
+            messId_weekType_dayOfWeek_mealSlot: {
+              messId,
+              weekType: r.weekType,
+              dayOfWeek: r.dayOfWeek,
+              mealSlot: r.mealSlot,
+            },
+          },
+        });
+
+        await prisma.wasteRecord.upsert({
+          where: { messId_date_mealSlot: { messId, date: r.date, mealSlot: r.mealSlot } },
+          update: {},
+          create: {
             messId,
+            date: r.date,
+            mealSlot: r.mealSlot,
             weekType: r.weekType,
             dayOfWeek: r.dayOfWeek,
-            mealSlot: r.mealSlot,
+            menuSlotId: menuSlot?.id ?? null,
+            plateWasteKg: r.plateWasteKg,
+            counterWasteKg: r.counterWasteKg,
+            packagingWasteKg: r.packagingWasteKg,
+            totalWasteKg: r.totalWasteKg,
+            headcount: r.headcount,
+            quantityPrepared: r.quantityPrepared,
+            quantityUnit: 'KG',
+            totalIngredientCost: r.totalIngredientCost,
+            wastePerPerson: r.wastePerPerson,
+            wastePercent: r.wastePercent,
+            temperatureC: null, // filled below from the WeatherDaily row just seeded
+            rainfallMm: null,
+            eventType: r.eventType,
+            scheduleDeviation: r.scheduleDeviation,
+            tags: r.tags,
+            createdById: collector.id,
           },
-        },
-      });
+        });
+        recordCount += 1;
+      }
 
-      await prisma.wasteRecord.upsert({
-        where: { messId_date_mealSlot: { messId, date: r.date, mealSlot: r.mealSlot } },
-        update: {},
-        create: {
-          messId,
-          date: r.date,
-          mealSlot: r.mealSlot,
-          weekType: r.weekType,
-          dayOfWeek: r.dayOfWeek,
-          menuSlotId: menuSlot?.id ?? null,
-          plateWasteKg: r.plateWasteKg,
-          counterWasteKg: r.counterWasteKg,
-          packagingWasteKg: r.packagingWasteKg,
-          totalWasteKg: r.totalWasteKg,
-          headcount: r.headcount,
-          quantityPrepared: r.quantityPrepared,
-          quantityUnit: 'KG',
-          totalIngredientCost: r.totalIngredientCost,
-          wastePerPerson: r.wastePerPerson,
-          wastePercent: r.wastePercent,
-          temperatureC: null, // filled below from the WeatherDaily row just seeded
-          rainfallMm: null,
-          eventType: r.eventType,
-          scheduleDeviation: r.scheduleDeviation,
-          tags: r.tags,
-          createdById: collector.id,
-        },
-      });
-      recordCount += 1;
+      // Backfill temperatureC/rainfallMm from the WeatherDaily cache in one
+      // pass (avoids one query per record above).
+      const weatherByDate = await prisma.weatherDaily.findMany({ where: { messId } });
+      const weatherMap = new Map(weatherByDate.map((w) => [formatDateOnly(w.date), w]));
+      for (const r of demoRows) {
+        const w = weatherMap.get(formatDateOnly(r.date));
+        if (!w) continue;
+        await prisma.wasteRecord.update({
+          where: { messId_date_mealSlot: { messId, date: r.date, mealSlot: r.mealSlot } },
+          data: { temperatureC: w.temperatureMeanC, rainfallMm: w.rainMm },
+        });
+      }
     }
+    console.log(`  done: ${recordCount} demo records`);
 
-    // Backfill temperatureC/rainfallMm from the WeatherDaily cache in one
-    // pass (avoids one query per record above).
-    const weatherByDate = await prisma.weatherDaily.findMany({ where: { messId } });
-    const weatherMap = new Map(weatherByDate.map((w) => [formatDateOnly(w.date), w]));
-    for (const r of demoRows) {
-      const w = weatherMap.get(formatDateOnly(r.date));
-      if (!w) continue;
-      await prisma.wasteRecord.update({
-        where: { messId_date_mealSlot: { messId, date: r.date, mealSlot: r.mealSlot } },
-        data: { temperatureC: w.temperatureMeanC, rainfallMm: w.rainMm },
-      });
-    }
   }
-  console.log(`  done: ${recordCount} demo records`);
 
   console.log('\n--- Seed complete ---');
-  console.log('\nLogin credentials:');
+  const usingDemoPasswords =
+    !process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_COLLECTOR_PASSWORD;
+  console.log('\nSeeded users (new users only; existing users keep their current password):');
   for (const u of seedUsers) {
-    console.log(`  ${u.role.padEnd(15)} ${u.email.padEnd(32)} ${u.password}${u.messCode ? `  (${u.messCode})` : ''}`);
+    const isDefault = u.password === DEFAULT_ADMIN_PASSWORD || u.password === DEFAULT_COLLECTOR_PASSWORD;
+    // Never echo passwords that came from env vars.
+    console.log(`  ${u.role.padEnd(15)} ${u.email.padEnd(32)} ${isDefault ? u.password : '(from SEED_*_PASSWORD)'}${u.messCode ? `  (${u.messCode})` : ''}`);
   }
-  console.log('\nChange these before any real deployment.');
+  if (usingDemoPasswords) console.log('\nWARNING: demo passwords in use. Change them before any real deployment.');
 }
 
 main()

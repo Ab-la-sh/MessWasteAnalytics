@@ -5,8 +5,20 @@ import { Role } from '@prisma/client';
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN_SECONDS = Number(process.env.JWT_EXPIRES_IN_SECONDS ?? 28800); // 8h default
 
+const MIN_PRODUCTION_SECRET_LENGTH = 32;
+const isProductionRuntime =
+  process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build';
+
+if (isProductionRuntime && (!JWT_SECRET || JWT_SECRET.length < MIN_PRODUCTION_SECRET_LENGTH)) {
+  // Refuse to boot in production with a missing/weak secret rather than
+  // signing sessions with something guessable.
+  throw new Error(
+    `[auth] JWT_SECRET must be set and at least ${MIN_PRODUCTION_SECRET_LENGTH} characters in production. ` +
+      'Generate one with: openssl rand -base64 48'
+  );
+}
+
 if (!JWT_SECRET && process.env.NODE_ENV !== 'test') {
-  // Fail loudly at boot rather than silently signing tokens with 'undefined'.
   // eslint-disable-next-line no-console
   console.warn('[auth] JWT_SECRET is not set — set it in your .env file.');
 }
