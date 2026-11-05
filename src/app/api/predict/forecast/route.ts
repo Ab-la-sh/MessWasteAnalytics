@@ -13,7 +13,7 @@ import {
 } from '@/lib/date-utils';
 import { round2, dayOfWeekLabel } from '@/lib/analytics';
 import { MEAL_SLOTS } from '@/lib/constants';
-import { isModelMess, predictDailyBatch, type ModelDayInput } from '@/lib/model-client';
+import { isModelConfigured, isModelMess, predictDailyBatch, type ModelDayInput } from '@/lib/model-client';
 import {
   predictWaste,
   seasonalWeather,
@@ -341,6 +341,11 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     avgPerDayKg: daily.length ? round2(totalPredictedKg / daily.length) : 0,
     confidence: overallConfidence(confidences),
     modelDays: modelDays.size,
+    model: {
+      status: modelDays.size > 0 ? 'active' : !messes.some((m) => isModelMess(m.code))
+        ? 'not-applicable' : !isModelConfigured() ? 'not-configured' : 'fallback',
+      messCodes: messes.filter((m) => isModelMess(m.code)).map((m) => m.code),
+    },
     daily,
     byMess: messes
       .map((m) => ({ messId: m.id, messName: m.name, predictedKg: round2(messTotals.get(m.id) ?? 0) }))

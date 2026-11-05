@@ -90,6 +90,18 @@ export function PredictionCard({
           />
         ) : (
           <>
+            <div className="mb-4 rounded-xl border border-navy-100 bg-navy-50/60 p-3" role="status">
+              <Badge tone={data?.model?.status === 'active' ? 'success' : 'warning'}>
+                {data?.model?.status === 'active' ? 'ML model active' : 'Baseline forecast'}
+              </Badge>
+              <p className="mt-2 text-xs text-navy-600">
+                {data?.model?.status === 'active'
+                  ? `Trained ExtraTrees model for ${data.model.messCodes.join(', ')} on ${data.modelDays} forecast days. Other messes use historical estimates.`
+                  : data?.model?.status === 'not-applicable'
+                    ? 'This mess uses historical estimates. The trained model is available for M1.'
+                    : 'The trained model is unavailable. Historical estimates keep the forecast available.'}
+              </p>
+            </div>
             <div className="mb-4 grid grid-cols-2 gap-3">
               <Metric
                 label={`Predicted over ${data?.days ?? 7} days`}
@@ -182,8 +194,10 @@ export function PredictionCard({
 
             <p className="mt-3 flex items-start gap-1.5 text-[11.5px] leading-relaxed text-navy-400">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              Recency-weighted history for each mess, meal and weekday, adjusted for the scheduled menu,
-              seasonal weather and the academic calendar. Click a point for that day&apos;s breakdown.
+              {data?.model?.status === 'active'
+                ? 'ML daily totals use menu, weather, calendar and recent waste. Meal breakdowns use historical proportions.'
+                : 'Recency-weighted history for each mess, meal and weekday, adjusted for menu, seasonal weather and calendar.'}
+              {' '}Click a point for that day&apos;s breakdown.
             </p>
           </>
         )}

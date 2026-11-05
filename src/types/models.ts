@@ -315,6 +315,7 @@ export interface PredictResponse {
 }
 
 export interface ForecastDay {
+  source?: 'ml-model' | 'baseline';
   date: string;
   dayOfWeek: DayOfWeek;
   label: string;
@@ -327,6 +328,11 @@ export interface ForecastDay {
 }
 
 export interface ForecastResponse {
+  modelDays?: number;
+  model?: {
+    status: 'active' | 'fallback' | 'not-applicable' | 'not-configured';
+    messCodes: string[];
+  };
   startDate: string | null;
   anchorDate: string | null;
   days: number;

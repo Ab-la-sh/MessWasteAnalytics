@@ -326,3 +326,11 @@ What that still can't catch: mismatches with real Recharts/Next/Prisma typings, 
 5. Optional hardening: a token-version column for real session revocation, rate-limiting on `/api/auth/login`, and a server-side `seen` state for notifications (needs a small table, which is why it's localStorage today).
 
 **Original spec status:** everything in the brief is now built except swipe/token-based automatic headcount. AI waste prediction and automated high-waste alerts landed in Phase 8.
+
+## Trained ML model integration
+
+The complete Python service and trained model live in [`model_service`](model_service/README.md).
+Deploy that directory as a separate FastAPI project on Vercel and set the website's
+model connection variables as documented there. The dashboard identifies ML
+predictions for M1 and historical baseline estimates for other messes or outages.
+This integration does not change the Supabase schema or existing data.

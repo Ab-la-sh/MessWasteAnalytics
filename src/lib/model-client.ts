@@ -90,6 +90,15 @@ export async function predictDailyBatch(items: ModelDayInput[]): Promise<ModelDa
       lastError = 'unexpected response shape from model service';
       return null;
     }
+    if (json.predictions.some((p, i) =>
+      p.date !== items[i].date ||
+      ![p.expected_kg, p.range_low_kg, p.range_high_kg, p.confidence].every(Number.isFinite) ||
+      p.range_low_kg < 0 || p.range_low_kg > p.expected_kg ||
+      p.expected_kg > p.range_high_kg || p.confidence < 0 || p.confidence > 1
+    )) {
+      lastError = 'invalid prediction values from model service';
+      return null;
+    }
     return json.predictions;
   } catch (err) {
     const cause = (err as { cause?: { message?: string; code?: string } })?.cause;

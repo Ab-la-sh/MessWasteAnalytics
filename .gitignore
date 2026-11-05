@@ -13,3 +13,10 @@ dist/
 
 .vercel
 .env*
+!.env.example
+!model_service/.env.example
+.venv/
+.model-venv/
+__pycache__/
+*.pyc
+.pytest_cache/
