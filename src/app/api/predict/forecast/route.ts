@@ -13,6 +13,7 @@ import {
 } from '@/lib/date-utils';
 import { round2, dayOfWeekLabel } from '@/lib/analytics';
 import { MEAL_SLOTS } from '@/lib/constants';
+import { isModelMess, predictDailyBatch, type ModelDayInput } from '@/lib/model-client';
 import {
   predictWaste,
   seasonalWeather,
@@ -30,6 +31,23 @@ type ForecastCalendarDay = CalendarContext & { holidayName: string | null; event
 type MenuFlagRow = MenuFlags & { weekType: string; dayOfWeek: string; mealSlot: string };
 
 const MAX_SAMPLES_PER_MESS = 500;
+
+/** The model works in whole-day crates; the app stores kilograms. */
+const KG_PER_CRATE = 30;
+
+/** Day-level menu facts the model needs, derived from the A/B menu grid. */
+interface DayMenu {
+  hasBiryani: boolean; // lunch or dinner
+  hasDosa: boolean; // breakfast
+  nDishes: number; // breakfast + lunch + dinner item counts
+}
+
+/** Map the model's top-class probability onto the app's low/medium/high scale. */
+function modelConfidence(topProb: number): PredictionConfidence {
+  if (topProb >= 0.45) return 'high';
+  if (topProb >= 0.3) return 'medium';
+  return 'low';
+}
 
 // GET /api/predict/forecast?messId=&days=7
 //
@@ -63,7 +81,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
 
   const messes = await prisma.mess.findMany({
     where: { ...(messId ? { id: messId } : { isActive: true }) },
-    select: { id: true, name: true },
+    select: { id: true, name: true, code: true },
     orderBy: { code: 'asc' },
   });
 
@@ -136,6 +154,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
           hasBiryani: true,
           hasPaneer: true,
           hasDessert: true,
+          hasDosa: true,
+          itemCount: true,
         },
       });
 
@@ -163,7 +183,19 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
         ] as const)
       );
 
-      return { mess, samples, weatherRows, menuByKey };
+      // Day-level menu view for the ML model (it predicts whole days, not meals).
+      const dayMenuByKey = new Map<string, DayMenu>();
+      for (const m of menuSlots) {
+        if (m.mealSlot === 'SNACKS') continue; // model's dish counts exclude snacks
+        const key = `${m.weekType}|${m.dayOfWeek}`;
+        const cur = dayMenuByKey.get(key) ?? { hasBiryani: false, hasDosa: false, nDishes: 0 };
+        cur.nDishes += m.itemCount;
+        if ((m.mealSlot === 'LUNCH' || m.mealSlot === 'DINNER') && m.hasBiryani) cur.hasBiryani = true;
+        if (m.mealSlot === 'BREAKFAST' && m.hasDosa) cur.hasDosa = true;
+        dayMenuByKey.set(key, cur);
+      }
+
+      return { mess, samples, weatherRows, menuByKey, dayMenuByKey };
     })
   );
 
@@ -175,18 +207,66 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const messTotals = new Map<string, number>();
   const confidences: PredictionConfidence[] = [];
 
-  for (const { mess, samples, weatherRows, menuByKey } of perMess) {
+  const modelDays = new Set<string>(); // ISO dates whose figure came from the ML model
+
+  for (const { mess, samples, weatherRows, menuByKey, dayMenuByKey } of perMess) {
     if (samples.length === 0) continue;
 
-    for (const date of dates) {
+    // Trailing 7-day waste (in crates) from the last 7 fully-recorded days.
+    const dayKg = new Map<string, { kg: number; slots: number }>();
+    for (const r of samples) {
+      const k = formatDateOnly(r.date);
+      const cur = dayKg.get(k) ?? { kg: 0, slots: 0 };
+      cur.kg += r.totalWasteKg;
+      cur.slots += 1;
+      dayKg.set(k, cur);
+    }
+    const lastFull = [...dayKg.entries()]
+      .filter(([, v]) => v.slots >= 3)
+      .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+      .slice(0, 7);
+    const cratesRollmean7 = lastFull.length
+      ? lastFull.reduce((acc, [, v]) => acc + v.kg, 0) / lastFull.length / KG_PER_CRATE
+      : undefined;
+
+    // Ask the model for every forecast day in a single round-trip (null = use baseline).
+    let modelOut: Awaited<ReturnType<typeof predictDailyBatch>> = null;
+    if (isModelMess(mess.code)) {
+      const items: ModelDayInput[] = dates.map((date) => {
+        const menu = dayMenuByKey.get(`${weekTypeFromDate(date)}|${dayOfWeekFromDate(date)}`);
+        const temp = seasonalWeather(weatherRows, date).temperatureC;
+        const prior = weatherRows
+          .filter((w) => {
+            const diff = (date.getTime() - w.date.getTime()) / 86_400_000;
+            return diff >= 1 && diff <= 7 && w.temperatureMeanC != null;
+          })
+          .map((w) => w.temperatureMeanC as number);
+        return {
+          date: formatDateOnly(date),
+          has_biryani: menu?.hasBiryani ?? false,
+          has_dosa: menu?.hasDosa ?? false,
+          n_dishes: menu && menu.nDishes > 0 ? menu.nDishes : undefined,
+          temp_mean_c: temp ?? undefined,
+          temp_anomaly:
+            temp != null && prior.length >= 3 ? temp - prior.reduce((a, b) => a + b, 0) / prior.length : undefined,
+          crates_rollmean7: cratesRollmean7,
+        };
+      });
+      modelOut = await predictDailyBatch(items);
+    }
+
+    for (let di = 0; di < dates.length; di++) {
+      const date = dates[di];
       const iso = formatDateOnly(date);
       const dayOfWeek = dayOfWeekFromDate(date);
       const weekType = weekTypeFromDate(date);
       const weather = seasonalWeather(weatherRows, date);
       const eventType = eventTypeFromCalendar(calendarByDate.get(iso));
 
+      // 1. Baseline per meal slot (always computed: it supplies the meal split and the fallback).
+      const slotPreds: { slot: (typeof MEAL_SLOTS)[number]; p: NonNullable<ReturnType<typeof predictWaste>> }[] = [];
       for (const slot of MEAL_SLOTS) {
-        const prediction = predictWaste(samples, {
+        const p = predictWaste(samples, {
           date,
           mealSlot: slot.value,
           dayOfWeek,
@@ -198,20 +278,33 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
           menuFlags: menuByKey.get(`${weekType}|${dayOfWeek}|${slot.value}`) ?? null,
           headcount: null,
         });
-        if (!prediction) continue;
-
-        confidences.push(prediction.confidence);
-
-        const bucket =
-          dailyTotals.get(iso) ?? { kg: 0, low: 0, high: 0, byMeal: new Map<string, number>() };
-        bucket.kg += prediction.predictedTotalWasteKg;
-        bucket.low += prediction.rangeLowKg;
-        bucket.high += prediction.rangeHighKg;
-        bucket.byMeal.set(slot.value, (bucket.byMeal.get(slot.value) ?? 0) + prediction.predictedTotalWasteKg);
-        dailyTotals.set(iso, bucket);
-
-        messTotals.set(mess.id, (messTotals.get(mess.id) ?? 0) + prediction.predictedTotalWasteKg);
+        if (p) slotPreds.push({ slot, p });
       }
+      if (slotPreds.length === 0) continue;
+      const baseKg = slotPreds.reduce((acc, x) => acc + x.p.predictedTotalWasteKg, 0);
+
+      // 2. If the model answered, its whole-day figure replaces the baseline's day total;
+      //    the baseline's meal-slot proportions are kept so the per-meal breakdown still works.
+      const m = modelOut?.[di];
+      const useModel = Boolean(m) && baseKg > 0;
+      const kgScale = useModel ? m!.expected_kg / baseKg : 1;
+      const lowScale = useModel ? m!.range_low_kg / baseKg : 1;
+      const highScale = useModel ? m!.range_high_kg / baseKg : 1;
+      if (useModel) modelDays.add(iso);
+
+      const bucket =
+        dailyTotals.get(iso) ?? { kg: 0, low: 0, high: 0, byMeal: new Map<string, number>() };
+
+      for (const { slot, p } of slotPreds) {
+        const kg = p.predictedTotalWasteKg * kgScale;
+        confidences.push(useModel ? modelConfidence(m!.confidence) : p.confidence);
+        bucket.kg += kg;
+        bucket.low += useModel ? p.predictedTotalWasteKg * lowScale : p.rangeLowKg;
+        bucket.high += useModel ? p.predictedTotalWasteKg * highScale : p.rangeHighKg;
+        bucket.byMeal.set(slot.value, (bucket.byMeal.get(slot.value) ?? 0) + kg);
+        messTotals.set(mess.id, (messTotals.get(mess.id) ?? 0) + kg);
+      }
+      dailyTotals.set(iso, bucket);
     }
   }
 
@@ -228,6 +321,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       rangeHighKg: round2(bucket?.high ?? 0),
       eventType: eventTypeFromCalendar(cal),
       eventName: cal?.holidayName ?? cal?.eventName ?? null,
+      // 'ml-model' when at least one mess's figure for this day came from the local model.
+      source: modelDays.has(iso) ? 'ml-model' : 'baseline',
       byMeal: MEAL_SLOTS.map((slot) => ({
         mealSlot: slot.value,
         label: slot.label,
@@ -245,6 +340,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     totalPredictedKg,
     avgPerDayKg: daily.length ? round2(totalPredictedKg / daily.length) : 0,
     confidence: overallConfidence(confidences),
+    modelDays: modelDays.size,
     daily,
     byMess: messes
       .map((m) => ({ messId: m.id, messName: m.name, predictedKg: round2(messTotals.get(m.id) ?? 0) }))

@@ -10,3 +10,6 @@ dist/
 .env.*.bak
 *.tsbuildinfo
 .DS_Store
+
+.vercel
+.env*
