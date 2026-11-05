@@ -38,7 +38,7 @@ export type RecordSortKey =
   | 'totalWasteKg'
   | 'wastePerPerson'
   | 'wastePercent'
-  | 'totalIngredientCost';
+  | 'estimatedWasteCost';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

@@ -136,9 +136,9 @@ export function RecordDetailModal({
               <dl>
                 <Row label="Headcount">{formatInt(r.headcount)}</Row>
                 <Row label="Quantity prepared">{formatQuantity(r.quantityPrepared, r.quantityUnit)}</Row>
-                <Row label="Ingredient cost">{formatCurrency(r.totalIngredientCost)}</Row>
-                <Row label="Cost per head">
-                  {r.headcount > 0 ? `₹${formatNumber(r.totalIngredientCost / r.headcount, 2)}` : '—'}
+                <Row label="Estimated food waste cost">{formatCurrency(r.estimatedWasteCost)}</Row>
+                <Row label="Estimated waste cost per person">
+                  {r.headcount > 0 && r.estimatedWasteCost !== null ? formatCurrency(r.estimatedWasteCost / r.headcount) : '—'}
                 </Row>
               </dl>
             </div>

@@ -16,8 +16,7 @@ const ROWS: { key: MetricKey; label: string; /** Whether a decrease is unambiguo
   { key: 'totalWasteKg', label: 'Total waste', lowerIsBetter: true },
   { key: 'avgWastePerPerson', label: 'Waste per person', lowerIsBetter: true },
   { key: 'avgWastePercent', label: 'Waste of prepared', lowerIsBetter: true },
-  // Spending less on ingredients isn't inherently good (fewer people, smaller menu), so no red/green here.
-  { key: 'totalCost', label: 'Ingredient cost', lowerIsBetter: false },
+  { key: 'totalCost', label: 'Estimated food waste cost', lowerIsBetter: true },
 ];
 
 function DeltaBadge({ delta, lowerIsBetter }: { delta: number | null; lowerIsBetter: boolean }) {

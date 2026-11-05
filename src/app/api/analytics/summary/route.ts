@@ -1,3 +1,4 @@
+import { withWasteCost } from '@/lib/waste-cost';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, resolveMessScope } from '@/lib/require-auth';
@@ -49,19 +50,21 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const prevWeekStart = addDaysUTC(asOfDate, -13);
   const prevWeekEnd = addDaysUTC(asOfDate, -7);
 
+  const costInclude = { mess: { select: { code: true } } };
   const [todayRecords, prevDayRecords, weekRecords, prevWeekRecords] = await Promise.all([
-    prisma.wasteRecord.findMany({ where: { ...baseWhere, date: asOfDate } }),
-    prisma.wasteRecord.findMany({ where: { ...baseWhere, date: prevDate } }),
-    prisma.wasteRecord.findMany({ where: { ...baseWhere, date: { gte: weekStart, lte: asOfDate } } }),
+    prisma.wasteRecord.findMany({ include: costInclude, where: { ...baseWhere, date: asOfDate } }),
+    prisma.wasteRecord.findMany({ include: costInclude, where: { ...baseWhere, date: prevDate } }),
+    prisma.wasteRecord.findMany({ include: costInclude, where: { ...baseWhere, date: { gte: weekStart, lte: asOfDate } } }),
     prisma.wasteRecord.findMany({
+      include: costInclude,
       where: { ...baseWhere, date: { gte: prevWeekStart, lte: prevWeekEnd } },
     }),
   ]);
 
-  const today = aggregateRecords(todayRecords);
-  const prevDay = aggregateRecords(prevDayRecords);
-  const week = aggregateRecords(weekRecords);
-  const prevWeek = aggregateRecords(prevWeekRecords);
+  const today = aggregateRecords(todayRecords.map(withWasteCost));
+  const prevDay = aggregateRecords(prevDayRecords.map(withWasteCost));
+  const week = aggregateRecords(weekRecords.map(withWasteCost));
+  const prevWeek = aggregateRecords(prevWeekRecords.map(withWasteCost));
 
   // "Average weekly waste" = total waste over the trailing week, averaged
   // over the days in that window that actually have records (a mess might
@@ -85,7 +88,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     },
     costWastedToday: {
       valueRupees: today.totalCost,
-      trendPct: pctChange(today.totalCost, prevDay.totalCost),
+      trendPct: today.totalCost === null || prevDay.totalCost === null ? null : pctChange(today.totalCost, prevDay.totalCost),
       comparedTo: 'previous day',
     },
     avgWeeklyWaste: {

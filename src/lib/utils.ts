@@ -15,9 +15,9 @@ export function formatInt(n: number | null | undefined): string {
   return n.toLocaleString('en-IN');
 }
 
-export function formatCurrency(n: number | null | undefined): string {
+export function formatCurrency(n: number | null | undefined, decimals = 2): string {
   if (n === null || n === undefined || Number.isNaN(n)) return '—';
-  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
 }
 
 export function formatTrend(pct: number | null | undefined): string {

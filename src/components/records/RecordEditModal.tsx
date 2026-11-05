@@ -1,5 +1,7 @@
 'use client';
 
+import { WasteCostEstimate } from '@/components/data-collection/WasteCostEstimate';
+
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Save, CloudSun } from 'lucide-react';
@@ -33,7 +35,6 @@ interface FormState {
   headcount: string;
   quantityPrepared: string;
   quantityUnit: QuantityUnit;
-  totalIngredientCost: string;
   eventType: EventType;
   scheduleDeviation: boolean;
   deviationReason: string;
@@ -54,7 +55,6 @@ function toForm(r: WasteRecord): FormState {
     headcount: String(r.headcount),
     quantityPrepared: String(r.quantityPrepared),
     quantityUnit: r.quantityUnit,
-    totalIngredientCost: String(r.totalIngredientCost),
     eventType: r.eventType,
     scheduleDeviation: r.scheduleDeviation,
     deviationReason: r.deviationReason ?? '',
@@ -164,7 +164,6 @@ export function RecordEditModal({
         headcount,
         quantityPrepared: qty,
         quantityUnit: form.quantityUnit,
-        totalIngredientCost: num(form.totalIngredientCost),
         eventType: form.eventType,
         scheduleDeviation: form.scheduleDeviation,
         deviationReason: form.scheduleDeviation ? form.deviationReason.trim() : null,
@@ -269,9 +268,8 @@ export function RecordEditModal({
               </Select>
             </div>
           </Field>
-          <Field label="Total ingredient cost (₹)">
-            <Input type="number" step="1" min="0" inputMode="decimal" value={form.totalIngredientCost} onChange={(e) => update('totalIngredientCost', e.target.value)} required />
-          </Field>
+          <WasteCostEstimate messCode={record.mess?.code} date={form.date}
+            plateWasteKg={num(form.plateWasteKg)} counterWasteKg={num(form.counterWasteKg)} />
         </Section>
 
         <Section title="Context & menu">

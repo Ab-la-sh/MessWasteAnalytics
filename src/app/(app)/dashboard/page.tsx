@@ -122,7 +122,7 @@ export default function DashboardPage() {
           loading={loading}
         />
         <KpiCard
-          label="Estimated Cost Wasted"
+          label="Estimated food waste cost"
           value={summary?.costWastedToday?.valueRupees != null ? formatCurrency(summary.costWastedToday.valueRupees) : '—'}
           trendPct={summary?.costWastedToday?.trendPct}
           comparedTo={summary?.costWastedToday?.comparedTo}

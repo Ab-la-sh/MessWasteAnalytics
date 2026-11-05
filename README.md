@@ -334,3 +334,14 @@ Deploy that directory as a separate FastAPI project on Vercel and set the websit
 model connection variables as documented there. The dashboard identifies ML
 predictions for M1 and historical baseline estimates for other messes or outages.
 This integration does not change the Supabase schema or existing data.
+
+## Estimated food waste cost
+
+The app calculates `estimatedWasteCost` from `(plateWasteKg + counterWasteKg)`
+and the approved weekday rate in `src/lib/waste-cost.ts`, rounded to two decimal
+places. Packaging is excluded. Entry and edit forms preview the same calculation
+used by the API, records, dashboard, analytics and exports. The estimate follows
+the record date, including historical dates. Unknown mess rates return unavailable
+rather than inventing a zero. The existing spending column remains in PostgreSQL
+for compatibility but is no longer required in the collector form or used in
+cost reports. No database migration or historical-data rewrite is needed.

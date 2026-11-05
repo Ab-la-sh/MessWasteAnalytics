@@ -1,5 +1,7 @@
 'use client';
 
+import { WasteCostEstimate } from '@/components/data-collection/WasteCostEstimate';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -55,7 +57,6 @@ const initialForm = {
   headcount: '',
   quantityPrepared: '',
   quantityUnit: 'KG' as QuantityUnit,
-  totalIngredientCost: '',
   eventType: 'NORMAL' as EventType,
   scheduleDeviation: false,
   deviationReason: '',
@@ -268,7 +269,6 @@ export default function DataCollectionPage() {
         headcount: parseInt(form.headcount, 10) || 0,
         quantityPrepared: parseFloat(form.quantityPrepared) || 0,
         quantityUnit: form.quantityUnit,
-        totalIngredientCost: parseFloat(form.totalIngredientCost) || 0,
         eventType: form.eventType,
         scheduleDeviation: form.scheduleDeviation,
         deviationReason: form.scheduleDeviation ? form.deviationReason : null,
@@ -431,18 +431,12 @@ export default function DataCollectionPage() {
               </Select>
             </div>
           </FormField>
-          <FormField label="Total Ingredient Cost (₹)">
-            <Input
-              type="number"
-              step="1"
-              min="0"
-              inputMode="decimal"
-              value={form.totalIngredientCost}
-              onChange={(e) => update('totalIngredientCost', e.target.value)}
-              placeholder="0"
-              required
-            />
-          </FormField>
+          <WasteCostEstimate
+            messCode={messes.find((m) => m.id === messId)?.code}
+            date={form.date}
+            plateWasteKg={parseFloat(form.plateWasteKg) || 0}
+            counterWasteKg={parseFloat(form.counterWasteKg) || 0}
+          />
           {wastePerPerson !== null && (
             <FormField label="Waste per Person (auto-calculated)" colSpan="half">
               <ReadOnlyField value={formatNumber(wastePerPerson, 2)} suffix="kg" />

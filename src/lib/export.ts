@@ -1,3 +1,4 @@
+import { withWasteCost } from '@/lib/waste-cost';
 // CSV/Excel export for WasteRecord data. Column set is deliberately flat and
 // ML-friendly (one row per record, every dimension as its own column,
 // booleans as 0/1, tags as a single semicolon-joined string) so the export
@@ -33,7 +34,8 @@ export interface ExportRow {
   total_waste_kg: number;
   waste_per_person: number;
   waste_percent: number;
-  total_ingredient_cost: number;
+  estimated_food_waste_cost_inr: number | "";
+  estimated_food_cost_per_kg_inr: number | "";
   temperature_c: number | '';
   rainfall_mm: number | '';
   schedule_deviation: 0 | 1;
@@ -51,6 +53,7 @@ export interface ExportRow {
 }
 
 export function toExportRow(r: ExportableWasteRecord): ExportRow {
+  const cost = withWasteCost(r);
   return {
     date: formatDateOnly(r.date),
     mess_code: r.mess.code,
@@ -68,7 +71,8 @@ export function toExportRow(r: ExportableWasteRecord): ExportRow {
     total_waste_kg: r.totalWasteKg,
     waste_per_person: r.wastePerPerson,
     waste_percent: r.wastePercent,
-    total_ingredient_cost: r.totalIngredientCost,
+    estimated_food_waste_cost_inr: cost.estimatedWasteCost ?? '',
+    estimated_food_cost_per_kg_inr: cost.estimatedCostPerKg ?? '',
     temperature_c: r.temperatureC ?? '',
     rainfall_mm: r.rainfallMm ?? '',
     schedule_deviation: r.scheduleDeviation ? 1 : 0,
@@ -114,6 +118,8 @@ export async function buildXlsx(records: ExportableWasteRecord[]): Promise<Blob>
       width: Math.max(12, key.length + 2),
     }));
     sheet.addRows(rows);
+    sheet.getColumn('estimated_food_waste_cost_inr').numFmt = '0.00';
+    sheet.getColumn('estimated_food_cost_per_kg_inr').numFmt = '0.00';
     sheet.getRow(1).font = { bold: true };
     sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: sheet.columns.length } };
   } else {

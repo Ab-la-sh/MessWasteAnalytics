@@ -22,7 +22,7 @@ export const createWasteRecordSchema = z.object({
   headcount: z.number().int().min(0),
   quantityPrepared: z.number().min(0),
   quantityUnit: quantityUnitSchema.default('KG'),
-  totalIngredientCost: z.number().min(0),
+  totalIngredientCost: z.number().min(0).optional(),
 
   eventType: eventTypeSchema.default('NORMAL'),
 
@@ -67,7 +67,7 @@ export const wasteRecordQuerySchema = z.object({
       'wastePercent',
       'headcount',
       'quantityPrepared',
-      'totalIngredientCost',
+      'estimatedWasteCost',
       'createdAt',
     ])
     .default('date'),

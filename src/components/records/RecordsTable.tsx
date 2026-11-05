@@ -48,7 +48,7 @@ export function RecordsTable({
             <SortableTh label="Qty prepared" sortKey="quantityPrepared" align="right" {...sortProps} />
             <SortableTh label="Total waste" sortKey="totalWasteKg" align="right" {...sortProps} />
             <SortableTh label="Waste / person" sortKey="wastePerPerson" align="right" {...sortProps} />
-            <SortableTh label="Ingredient cost" sortKey="totalIngredientCost" align="right" {...sortProps} />
+            <SortableTh label="Estimated food waste cost" sortKey="estimatedWasteCost" align="right" {...sortProps} />
             <Th align="center">Week</Th>
             <Th>Schedule</Th>
             <Th align="right">
@@ -75,7 +75,7 @@ export function RecordsTable({
                 {formatNumber(r.totalWasteKg, 1)} kg
               </Td>
               <Td align="right">{formatNumber(r.wastePerPerson, 2)} kg</Td>
-              <Td align="right">{formatCurrency(r.totalIngredientCost)}</Td>
+              <Td align="right">{formatCurrency(r.estimatedWasteCost)}</Td>
               <Td align="center">
                 <Badge tone={r.weekType === 'A' ? 'brand' : 'neutral'}>{r.weekType}</Badge>
               </Td>

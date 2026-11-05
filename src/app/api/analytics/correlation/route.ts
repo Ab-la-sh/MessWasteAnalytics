@@ -1,3 +1,4 @@
+import { withWasteCost } from '@/lib/waste-cost';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, resolveMessScope } from '@/lib/require-auth';
@@ -7,8 +8,8 @@ import { searchParamsToObject } from '@/lib/query';
 import { buildAnalyticsWhere, pearsonCorrelation } from '@/lib/analytics';
 import { formatDateOnly } from '@/lib/date-utils';
 
-// GET /api/analytics/correlation?metric=quantityPrepared|totalIngredientCost&messId=&dateFrom=&dateTo=&limit=
-// Powers "quantity prepared vs waste" (Dashboard) and "ingredient cost vs
+// GET /api/analytics/correlation?metric=quantityPrepared|estimatedWasteCost&messId=&dateFrom=&dateTo=&limit=
+// Powers "quantity prepared vs waste" (Dashboard) and "estimated food waste cost vs
 // waste" (Analytics) as a scatter series, plus the Pearson correlation
 // coefficient for the pair. Most recent `limit` records, oldest-plotted-last.
 export const GET = withErrorHandling(async (req: NextRequest) => {
@@ -22,7 +23,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const messId = resolveMessScope(ctx, q.messId ?? null);
 
   const where = buildAnalyticsWhere(messId, q.dateFrom, q.dateTo);
-  const records = await prisma.wasteRecord.findMany({
+  const rawRecords = await prisma.wasteRecord.findMany({
     where,
     orderBy: { date: 'desc' },
     take: q.limit,
@@ -32,16 +33,18 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       mealSlot: true,
       totalWasteKg: true,
       quantityPrepared: true,
-      totalIngredientCost: true,
-      mess: { select: { name: true } },
+      plateWasteKg: true,
+      counterWasteKg: true,
+      mess: { select: { name: true, code: true } },
     },
   });
+  const records = rawRecords.map(withWasteCost).filter((r) => q.metric === 'quantityPrepared' || r.estimatedWasteCost !== null);
 
   const xOf = (r: (typeof records)[number]) =>
-    q.metric === 'quantityPrepared' ? r.quantityPrepared : r.totalIngredientCost;
+    q.metric === 'quantityPrepared' ? r.quantityPrepared : r.estimatedWasteCost!;
 
   const xs = records.map(xOf);
-  const ys = records.map((r) => r.totalWasteKg);
+  const ys = records.map((r) => (q.metric === 'quantityPrepared' ? r.totalWasteKg : r.foodWasteKg));
 
   const points = records.map((r) => ({
     date: formatDateOnly(r.date),
@@ -49,13 +52,13 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     messName: r.mess.name,
     mealSlot: r.mealSlot,
     x: xOf(r),
-    y: r.totalWasteKg,
+    y: (q.metric === 'quantityPrepared' ? r.totalWasteKg : r.foodWasteKg),
   }));
 
   return apiSuccess({
     metric: q.metric,
-    xLabel: q.metric === 'quantityPrepared' ? 'Quantity Prepared' : 'Ingredient Cost (₹)',
-    yLabel: 'Total Waste (kg)',
+    xLabel: q.metric === 'quantityPrepared' ? 'Quantity Prepared' : 'Estimated food waste cost (₹)',
+    yLabel: q.metric === 'quantityPrepared' ? 'Total Waste (kg)' : 'Food waste (kg)',
     correlation: pearsonCorrelation(xs, ys),
     sampleSize: points.length,
     points,

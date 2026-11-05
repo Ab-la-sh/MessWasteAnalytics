@@ -1,3 +1,4 @@
+import { withWasteCost } from '@/lib/waste-cost';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, requireRole, resolveMessScope } from '@/lib/require-auth';
@@ -27,7 +28,7 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: Params
 
   resolveMessScope(ctx, record.messId);
 
-  return apiSuccess({ record });
+  return apiSuccess({ record: withWasteCost(record) });
 });
 
 // Data Collectors may edit records belonging to their own mess; Admins may
@@ -155,7 +156,7 @@ export const PATCH = withErrorHandling(async (req: NextRequest, { params }: Para
     },
   });
 
-  return apiSuccess({ record });
+  return apiSuccess({ record: withWasteCost(record) });
 });
 
 // Delete is Admin-only per the spec ("Data Collector: submit + edit own

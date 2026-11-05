@@ -1,3 +1,4 @@
+import { totalEstimatedWasteCost } from '@/lib/waste-cost';
 // Shared helpers for the analytics/aggregation API layer (Phase 5).
 //
 // Aggregation is done in application code, not `prisma.wasteRecord.groupBy`,
@@ -128,7 +129,7 @@ export interface AggregatableRecord {
   totalWasteKg: number;
   wastePerPerson: number;
   wastePercent: number;
-  totalIngredientCost: number;
+  estimatedWasteCost?: number | null;
   headcount: number;
   quantityPrepared: number;
 }
@@ -139,7 +140,7 @@ export interface AggregatedMetrics {
   avgWasteKg: number;
   avgWastePerPerson: number;
   avgWastePercent: number;
-  totalCost: number;
+  totalCost: number | null;
   totalHeadcount: number;
   totalQuantityPrepared: number;
 }
@@ -147,7 +148,7 @@ export interface AggregatedMetrics {
 export function aggregateRecords<T extends AggregatableRecord>(records: T[]): AggregatedMetrics {
   const recordCount = records.length;
   const totalWasteKg = round2(sum(records.map((r) => r.totalWasteKg)));
-  const totalCost = round2(sum(records.map((r) => r.totalIngredientCost)));
+  const totalCost = totalEstimatedWasteCost(records.map((r) => ({ estimatedWasteCost: r.estimatedWasteCost ?? null })));
   const totalHeadcount = sum(records.map((r) => r.headcount));
   const totalQuantityPrepared = round2(sum(records.map((r) => r.quantityPrepared)));
 

@@ -61,7 +61,7 @@ export default function AnalyticsPage() {
   );
   const cost = useApi<CorrelationResponse>(
     '/api/analytics/correlation',
-    scope ? { ...scope, metric: 'totalIngredientCost', limit: 300 } : null
+    scope ? { ...scope, metric: 'estimatedWasteCost', limit: 300 } : null
   );
 
   let rangeCaption: string;
@@ -130,8 +130,8 @@ export default function AnalyticsPage() {
             points={cost.data?.points ?? []}
             correlation={cost.data?.correlation ?? null}
             loading={!cost.data && !cost.error}
-            xLabel="Ingredient Cost (₹)"
-            yLabel="Total Waste (kg)"
+            xLabel="Estimated food waste cost (₹)"
+            yLabel="Food waste (kg)"
           />
         </div>
 
