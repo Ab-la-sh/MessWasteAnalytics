@@ -4,7 +4,7 @@ import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { Table, Th, SortableTh, Td } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { formatCurrency, formatInt, formatNumber, cn } from '@/lib/utils';
+import { formatInt, formatNumber, cn } from '@/lib/utils';
 import { dayOfWeekLabel, formatDate, formatQuantity, mealSlotLabel } from '@/lib/format';
 import type { RecordSortKey } from '@/lib/record-filters';
 import type { SortDir, WasteRecord } from '@/types/models';
@@ -48,7 +48,6 @@ export function RecordsTable({
             <SortableTh label="Qty prepared" sortKey="quantityPrepared" align="right" {...sortProps} />
             <SortableTh label="Total waste" sortKey="totalWasteKg" align="right" {...sortProps} />
             <SortableTh label="Waste / person" sortKey="wastePerPerson" align="right" {...sortProps} />
-            <SortableTh label="Estimated food waste cost" sortKey="estimatedWasteCost" align="right" {...sortProps} />
             <Th align="center">Week</Th>
             <Th>Schedule</Th>
             <Th align="right">
@@ -75,7 +74,6 @@ export function RecordsTable({
                 {formatNumber(r.totalWasteKg, 1)} kg
               </Td>
               <Td align="right">{formatNumber(r.wastePerPerson, 2)} kg</Td>
-              <Td align="right">{formatCurrency(r.estimatedWasteCost)}</Td>
               <Td align="center">
                 <Badge tone={r.weekType === 'A' ? 'brand' : 'neutral'}>{r.weekType}</Badge>
               </Td>

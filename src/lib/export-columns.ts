@@ -7,7 +7,7 @@
 
 import type { ExportRow } from '@/lib/export';
 
-export type ColumnGroup = 'Identity' | 'Calendar & context' | 'Waste' | 'Volume & cost' | 'Weather' | 'Menu' | 'Notes';
+export type ColumnGroup = 'Identity' | 'Calendar & context' | 'Waste' | 'Volume' | 'Weather' | 'Menu' | 'Notes';
 
 export interface ColumnDoc {
   group: ColumnGroup;
@@ -27,17 +27,15 @@ const COLUMN_DOCS: Record<keyof ExportRow, ColumnDoc> = {
     type: 'text',
     description: 'NORMAL, HOLIDAY, FESTIVAL, COLLEGE_EVENT or EXAM_PERIOD.',
   },
-  headcount: { group: 'Volume & cost', type: 'number', description: 'People served at this meal.' },
-  quantity_prepared: { group: 'Volume & cost', type: 'number', description: 'Food prepared, in quantity_unit.' },
-  quantity_unit: { group: 'Volume & cost', type: 'text', description: 'KG or LITRES.' },
+  headcount: { group: 'Volume', type: 'number', description: 'People served at this meal.' },
+  quantity_prepared: { group: 'Volume', type: 'number', description: 'Food prepared, in quantity_unit.' },
+  quantity_unit: { group: 'Volume', type: 'text', description: 'KG or LITRES.' },
   plate_waste_kg: { group: 'Waste', type: 'number', description: 'Waste left on diners’ plates (kg).' },
   counter_waste_kg: { group: 'Waste', type: 'number', description: 'Waste at the serving counter (kg).' },
   packaging_waste_kg: { group: 'Waste', type: 'number', description: 'Packaging waste (kg).' },
   total_waste_kg: { group: 'Waste', type: 'number', description: 'Plate + counter + packaging (kg). Server-computed.' },
   waste_per_person: { group: 'Waste', type: 'number', description: 'total_waste_kg ÷ headcount (kg per person).' },
   waste_percent: { group: 'Waste', type: 'number', description: '(total_waste_kg ÷ quantity_prepared) × 100.' },
-  estimated_food_waste_cost_inr: { group: 'Volume & cost', type: 'number', description: 'Estimated food waste cost in ₹; blank if unavailable.' },
-  estimated_food_cost_per_kg_inr: { group: 'Volume & cost', type: 'number', description: 'Estimated food cost per kg in ₹; blank if unavailable.' },
   temperature_c: { group: 'Weather', type: 'number', description: 'Mean temperature that day (°C) — blank if unavailable.' },
   rainfall_mm: { group: 'Weather', type: 'number', description: 'Rainfall that day (mm) — blank if unavailable.' },
   schedule_deviation: { group: 'Menu', type: '0/1', description: '1 if the meal deviated from the scheduled menu.' },

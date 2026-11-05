@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 
-const GROUP_ORDER: ColumnGroup[] = ['Identity', 'Calendar & context', 'Waste', 'Volume & cost', 'Weather', 'Menu', 'Notes'];
+const GROUP_ORDER: ColumnGroup[] = ['Identity', 'Calendar & context', 'Waste', 'Volume', 'Weather', 'Menu', 'Notes'];
 
 /** Collapsible reference for every column in the export, in file order within each group. */
 export function ColumnDictionary() {

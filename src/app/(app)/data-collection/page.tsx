@@ -1,11 +1,9 @@
 'use client';
 
-import { WasteCostEstimate } from '@/components/data-collection/WasteCostEstimate';
-
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Scale, Wallet, CloudSun, UtensilsCrossed, Store, Save, RotateCcw } from 'lucide-react';
+import { Scale, Users, CloudSun, UtensilsCrossed, Store, Save, RotateCcw } from 'lucide-react';
 import { api, ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { useMess, ALL_MESSES } from '@/lib/mess-context';
@@ -295,7 +293,7 @@ export default function DataCollectionPage() {
     <div>
       <PageHeader
         title="Data Collection"
-        description="Log today's waste, volume, and cost for a mess and meal slot."
+        description="Log waste, headcount, and quantity prepared for a mess and meal slot."
         actions={
           <Button type="button" variant="outline" size="sm" onClick={resetForm}>
             <RotateCcw className="h-3.5 w-3.5" />
@@ -393,7 +391,7 @@ export default function DataCollectionPage() {
           </FormField>
         </FormSection>
 
-        <FormSection icon={Wallet} title="Volume & Cost">
+        <FormSection icon={Users} title="Volume">
           <FormField label="Headcount">
             <Input
               type="number"
@@ -431,14 +429,8 @@ export default function DataCollectionPage() {
               </Select>
             </div>
           </FormField>
-          <WasteCostEstimate
-            messCode={messes.find((m) => m.id === messId)?.code}
-            date={form.date}
-            plateWasteKg={parseFloat(form.plateWasteKg) || 0}
-            counterWasteKg={parseFloat(form.counterWasteKg) || 0}
-          />
           {wastePerPerson !== null && (
-            <FormField label="Waste per Person (auto-calculated)" colSpan="half">
+            <FormField label="Waste per Person (auto-calculated)">
               <ReadOnlyField value={formatNumber(wastePerPerson, 2)} suffix="kg" />
             </FormField>
           )}

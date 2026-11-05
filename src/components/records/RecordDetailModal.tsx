@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { useApi } from '@/lib/use-api';
-import { formatCurrency, formatInt, formatNumber } from '@/lib/utils';
+import { formatInt, formatNumber } from '@/lib/utils';
 import {
   dayOfWeekLabel,
   eventTypeLabel,
@@ -132,14 +132,10 @@ export function RecordDetailModal({
 
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
             <div>
-              <SectionTitle>Volume &amp; cost</SectionTitle>
+              <SectionTitle>Volume</SectionTitle>
               <dl>
                 <Row label="Headcount">{formatInt(r.headcount)}</Row>
                 <Row label="Quantity prepared">{formatQuantity(r.quantityPrepared, r.quantityUnit)}</Row>
-                <Row label="Estimated food waste cost">{formatCurrency(r.estimatedWasteCost)}</Row>
-                <Row label="Estimated waste cost per person">
-                  {r.headcount > 0 && r.estimatedWasteCost !== null ? formatCurrency(r.estimatedWasteCost / r.headcount) : '—'}
-                </Row>
               </dl>
             </div>
             <div>

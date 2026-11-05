@@ -31,7 +31,7 @@ export const breakdownQuerySchema = analyticsBaseQuerySchema.extend({
 });
 
 export const correlationQuerySchema = analyticsBaseQuerySchema.extend({
-  metric: z.enum(['quantityPrepared', 'estimatedWasteCost']).default('quantityPrepared'),
+  metric: z.enum(['quantityPrepared', 'totalIngredientCost']).default('quantityPrepared'),
   limit: z.coerce.number().int().min(1).max(2000).default(500),
 });
 

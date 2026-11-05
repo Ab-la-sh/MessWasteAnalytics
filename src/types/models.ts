@@ -82,10 +82,7 @@ export interface WasteRecord {
   headcount: number;
   quantityPrepared: number;
   quantityUnit: QuantityUnit;
-  totalIngredientCost: number; // Legacy stored spending; not used for estimated waste cost.
-  estimatedWasteCost: number | null;
-  estimatedCostPerKg: number | null;
-  foodWasteKg: number;
+  totalIngredientCost: number;
   wastePerPerson: number;
   wastePercent: number;
   temperatureC: number | null;
@@ -112,7 +109,7 @@ export interface TrendPoint {
   avgWasteKg: number;
   avgWastePerPerson: number;
   avgWastePercent: number;
-  totalCost: number | null;
+  totalCost: number;
   totalHeadcount: number;
   totalQuantityPrepared: number;
 }
@@ -125,7 +122,7 @@ export interface BreakdownRow {
   avgWasteKg: number;
   avgWastePerPerson: number;
   avgWastePercent: number;
-  totalCost: number | null;
+  totalCost: number;
   totalHeadcount: number;
   totalQuantityPrepared: number;
 }
@@ -212,7 +209,7 @@ export interface CorrelationPointData {
 }
 
 export interface CorrelationResponse {
-  metric: 'quantityPrepared' | 'estimatedWasteCost';
+  metric: 'quantityPrepared' | 'totalIngredientCost';
   xLabel: string;
   yLabel: string;
   correlation: number | null;

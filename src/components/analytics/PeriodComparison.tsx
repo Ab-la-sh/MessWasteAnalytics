@@ -5,21 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState, Skeleton } from '@/components/ui/Skeleton';
 import { useApi } from '@/lib/use-api';
-import { deltaPct, formatMetric, previousRange, summarizeSeries, type PeriodTotals } from '@/lib/analytics-client';
+import { deltaPct, formatMetric, previousRange, summarizeSeries, type PeriodTotals, type TrendMetric } from '@/lib/analytics-client';
 import { formatDate } from '@/lib/format';
 import type { TrendsResponse } from '@/types/models';
 import type { AnalyticsScope } from '@/components/analytics/types';
 
-type MetricKey = 'totalWasteKg' | 'avgWastePerPerson' | 'avgWastePercent' | 'totalCost';
-
-const ROWS: { key: MetricKey; label: string; /** Whether a decrease is unambiguously good news. */ lowerIsBetter: boolean }[] = [
-  { key: 'totalWasteKg', label: 'Total waste', lowerIsBetter: true },
-  { key: 'avgWastePerPerson', label: 'Waste per person', lowerIsBetter: true },
-  { key: 'avgWastePercent', label: 'Waste of prepared', lowerIsBetter: true },
-  { key: 'totalCost', label: 'Estimated food waste cost', lowerIsBetter: true },
+const ROWS: { key: TrendMetric; label: string }[] = [
+  { key: 'totalWasteKg', label: 'Total waste' },
+  { key: 'avgWastePerPerson', label: 'Waste per person' },
+  { key: 'avgWastePercent', label: 'Waste of prepared' },
 ];
 
-function DeltaBadge({ delta, lowerIsBetter }: { delta: number | null; lowerIsBetter: boolean }) {
+function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === null) return <Badge>No baseline</Badge>;
   if (Math.abs(delta) < 0.05) {
     return (
@@ -30,7 +27,7 @@ function DeltaBadge({ delta, lowerIsBetter }: { delta: number | null; lowerIsBet
     );
   }
   const up = delta > 0;
-  const tone = !lowerIsBetter ? 'brand' : up ? 'danger' : 'success';
+  const tone = up ? 'danger' : 'success';
   const Icon = up ? ArrowUpRight : ArrowDownRight;
   return (
     <Badge tone={tone}>
@@ -108,7 +105,7 @@ export function PeriodComparison({ scope }: { scope: AnalyticsScope | null }) {
                       </p>
                     </div>
                     <div className="text-right">
-                      <DeltaBadge delta={deltaPct(c, p)} lowerIsBetter={row.lowerIsBetter} />
+                      <DeltaBadge delta={deltaPct(c, p)} />
                       <p className="mt-1 text-[12px] text-navy-400">was {formatMetric(row.key, p)}</p>
                     </div>
                   </li>

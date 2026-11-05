@@ -1,4 +1,3 @@
-import { withWasteCost } from '@/lib/waste-cost';
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
@@ -51,13 +50,13 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       : {}),
   };
 
-  const costSort = q.sortBy === 'estimatedWasteCost';
   const [total, records] = await Promise.all([
     prisma.wasteRecord.count({ where }),
     prisma.wasteRecord.findMany({
       where,
-      orderBy: costSort ? { date: 'desc' } : { [q.sortBy]: q.sortDir },
-      ...(costSort ? {} : { skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      orderBy: { [q.sortBy]: q.sortDir },
+      skip: (q.page - 1) * q.pageSize,
+      take: q.pageSize,
       include: {
         mess: { select: { id: true, name: true, code: true } },
         createdBy: { select: { id: true, name: true } },
@@ -66,18 +65,8 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
     }),
   ]);
 
-  let items = records.map(withWasteCost);
-  if (costSort) {
-    items.sort((a, b) => {
-      if (a.estimatedWasteCost === null) return b.estimatedWasteCost === null ? a.id.localeCompare(b.id) : 1;
-      if (b.estimatedWasteCost === null) return -1;
-      const diff = a.estimatedWasteCost - b.estimatedWasteCost;
-      return (q.sortDir === 'asc' ? diff : -diff) || a.id.localeCompare(b.id);
-    });
-    items = items.slice((q.page - 1) * q.pageSize, q.page * q.pageSize);
-  }
-  const body: PaginatedData<(typeof items)[number]> = {
-    items,
+  const body: PaginatedData<(typeof records)[number]> = {
+    items: records,
     pagination: {
       page: q.page,
       pageSize: q.pageSize,
@@ -168,7 +157,7 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
       headcount: input.headcount,
       quantityPrepared: input.quantityPrepared,
       quantityUnit: input.quantityUnit,
-      totalIngredientCost: input.totalIngredientCost ?? 0,
+      totalIngredientCost: input.totalIngredientCost,
 
       wastePerPerson: derived.wastePerPerson,
       wastePercent: derived.wastePercent,
@@ -193,5 +182,5 @@ export const POST = withErrorHandling(async (req: NextRequest) => {
     },
   });
 
-  return apiSuccess({ record: withWasteCost(record) }, 201);
+  return apiSuccess({ record }, 201);
 });

@@ -59,10 +59,6 @@ export default function AnalyticsPage() {
     '/api/analytics/correlation',
     scope ? { ...scope, metric: 'quantityPrepared', limit: 300 } : null
   );
-  const cost = useApi<CorrelationResponse>(
-    '/api/analytics/correlation',
-    scope ? { ...scope, metric: 'estimatedWasteCost', limit: 300 } : null
-  );
 
   let rangeCaption: string;
   if (preset === 'all') rangeCaption = 'Every record on file';
@@ -118,22 +114,13 @@ export default function AnalyticsPage() {
           <PeriodComparison scope={scope} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <CorrelationChart
-            points={quantity.data?.points ?? []}
-            correlation={quantity.data?.correlation ?? null}
-            loading={!quantity.data && !quantity.error}
-            xLabel="Quantity Prepared"
-            yLabel="Total Waste (kg)"
-          />
-          <CorrelationChart
-            points={cost.data?.points ?? []}
-            correlation={cost.data?.correlation ?? null}
-            loading={!cost.data && !cost.error}
-            xLabel="Estimated food waste cost (₹)"
-            yLabel="Food waste (kg)"
-          />
-        </div>
+        <CorrelationChart
+          points={quantity.data?.points ?? []}
+          correlation={quantity.data?.correlation ?? null}
+          loading={!quantity.data && !quantity.error}
+          xLabel="Quantity Prepared"
+          yLabel="Total Waste (kg)"
+        />
 
         <AnomalyTable scope={scope} />
       </div>

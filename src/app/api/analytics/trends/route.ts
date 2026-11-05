@@ -1,4 +1,3 @@
-import { withWasteCost } from '@/lib/waste-cost';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, resolveMessScope } from '@/lib/require-auth';
@@ -21,7 +20,7 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
   const messId = resolveMessScope(ctx, q.messId ?? null);
 
   const where = buildAnalyticsWhere(messId, q.dateFrom, q.dateTo);
-  const rawRecords = await prisma.wasteRecord.findMany({
+  const records = await prisma.wasteRecord.findMany({
     where,
     orderBy: { date: 'asc' },
     select: {
@@ -30,14 +29,12 @@ export const GET = withErrorHandling(async (req: NextRequest) => {
       totalWasteKg: true,
       wastePerPerson: true,
       wastePercent: true,
-      plateWasteKg: true,
-      counterWasteKg: true,
+      totalIngredientCost: true,
       headcount: true,
       quantityPrepared: true,
-      mess: { select: { name: true, code: true } },
+      mess: { select: { name: true } },
     },
   });
-  const records = rawRecords.map(withWasteCost);
 
   const series = buildTrendSeries(records, q.granularity);
 

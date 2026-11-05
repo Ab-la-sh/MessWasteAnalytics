@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Scale, Users, Wallet, CalendarDays } from 'lucide-react';
+import { Scale, Users, CalendarDays } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import { useMess, ALL_MESSES } from '@/lib/mess-context';
 import { useAuth } from '@/lib/auth-context';
@@ -13,7 +13,7 @@ import { CompositionChart } from '@/components/dashboard/CompositionChart';
 import { CorrelationChart, type CorrelationPoint } from '@/components/dashboard/CorrelationChart';
 import { InsightsCard } from '@/components/dashboard/InsightsCard';
 import { PredictionCard } from '@/components/dashboard/PredictionCard';
-import { formatNumber, formatCurrency } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 import type {
   SummaryResponse,
   TrendPoint,
@@ -100,7 +100,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
         <KpiCard
           label="Total Waste Today"
           value={summary?.totalWasteToday?.valueKg != null ? `${formatNumber(summary.totalWasteToday.valueKg)} kg` : '—'}
@@ -119,14 +119,6 @@ export default function DashboardPage() {
           trendPct={summary?.wastePerPersonToday?.trendPct}
           comparedTo={summary?.wastePerPersonToday?.comparedTo}
           icon={Users}
-          loading={loading}
-        />
-        <KpiCard
-          label="Estimated food waste cost"
-          value={summary?.costWastedToday?.valueRupees != null ? formatCurrency(summary.costWastedToday.valueRupees) : '—'}
-          trendPct={summary?.costWastedToday?.trendPct}
-          comparedTo={summary?.costWastedToday?.comparedTo}
-          icon={Wallet}
           loading={loading}
         />
         <KpiCard

@@ -3,7 +3,7 @@
 // No React and no browser APIs — unit-testable directly.
 
 import { addDaysIso } from '@/lib/format';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 import type { BreakdownResponse, BreakdownRow, TrendPoint } from '@/types/models';
 
 // ---------------------------------------------------------------------------
@@ -56,13 +56,12 @@ export function previousRange(range: DateRange): Required<DateRange> | null {
 // Metrics
 // ---------------------------------------------------------------------------
 
-export type TrendMetric = 'totalWasteKg' | 'avgWastePerPerson' | 'avgWastePercent' | 'totalCost';
+export type TrendMetric = 'totalWasteKg' | 'avgWastePerPerson' | 'avgWastePercent';
 
 export const TREND_METRICS: { value: TrendMetric; label: string }[] = [
   { value: 'totalWasteKg', label: 'Total waste (kg)' },
   { value: 'avgWastePerPerson', label: 'Waste per person (kg)' },
   { value: 'avgWastePercent', label: 'Waste of prepared (%)' },
-  { value: 'totalCost', label: 'Estimated food waste cost (₹)' },
 ];
 
 export function formatMetric(metric: TrendMetric | BreakdownMetric, value: number | null | undefined): string {
@@ -75,8 +74,6 @@ export function formatMetric(metric: TrendMetric | BreakdownMetric, value: numbe
       return `${formatNumber(value, 3)} kg`;
     case 'avgWastePercent':
       return `${formatNumber(value, 1)}%`;
-    case 'totalCost':
-      return formatCurrency(value);
   }
 }
 
@@ -98,7 +95,6 @@ export interface PeriodTotals {
   totalWasteKg: number;
   avgWastePerPerson: number;
   avgWastePercent: number;
-  totalCost: number | null;
 }
 
 /**
@@ -109,28 +105,24 @@ export interface PeriodTotals {
 export function summarizeSeries(points: TrendPoint[]): PeriodTotals {
   let recordCount = 0;
   let totalWasteKg = 0;
-  let totalCost = 0;
   let perPersonSum = 0;
   let percentSum = 0;
   for (const p of points) {
     recordCount += p.recordCount;
     totalWasteKg += p.totalWasteKg;
-    totalCost += p.totalCost ?? 0;
     perPersonSum += p.avgWastePerPerson * p.recordCount;
     percentSum += p.avgWastePercent * p.recordCount;
   }
   return {
     recordCount,
     totalWasteKg,
-    totalCost: points.some((p) => p.totalCost === null) ? null : totalCost,
     avgWastePerPerson: recordCount ? perPersonSum / recordCount : 0,
     avgWastePercent: recordCount ? percentSum / recordCount : 0,
   };
 }
 
 /** % change previous -> current; null when the baseline is 0 and the % is undefined. */
-export function deltaPct(current: number | null, previous: number | null): number | null {
-  if (current === null || previous === null) return null;
+export function deltaPct(current: number, previous: number): number | null {
   if (previous === 0) return current === 0 ? 0 : null;
   return ((current - previous) / previous) * 100;
 }

@@ -1,7 +1,5 @@
 'use client';
 
-import { WasteCostEstimate } from '@/components/data-collection/WasteCostEstimate';
-
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Save, CloudSun } from 'lucide-react';
@@ -252,11 +250,11 @@ export function RecordEditModal({
           </div>
         </Section>
 
-        <Section title="Volume & cost">
+        <Section title="Volume">
           <Field label="Headcount">
             <Input type="number" step="1" min="0" inputMode="numeric" value={form.headcount} onChange={(e) => update('headcount', e.target.value)} required />
           </Field>
-          <Field label="Quantity prepared">
+          <Field label="Quantity prepared" span={2}>
             <div className="flex gap-2">
               <Input type="number" step="0.1" min="0" inputMode="decimal" value={form.quantityPrepared} onChange={(e) => update('quantityPrepared', e.target.value)} required />
               <Select className="w-24 shrink-0" value={form.quantityUnit} onChange={(e) => update('quantityUnit', e.target.value as QuantityUnit)}>
@@ -268,8 +266,6 @@ export function RecordEditModal({
               </Select>
             </div>
           </Field>
-          <WasteCostEstimate messCode={record.mess?.code} date={form.date}
-            plateWasteKg={num(form.plateWasteKg)} counterWasteKg={num(form.counterWasteKg)} />
         </Section>
 
         <Section title="Context & menu">
